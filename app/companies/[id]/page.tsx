@@ -2,7 +2,10 @@ import { supabase } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Building2, Globe, Users, Linkedin, Mail, MapPin, Database, LayoutTemplate } from "lucide-react";
+import { 
+    ArrowLeft, Building2, Globe, Users, Linkedin, Mail, MapPin, Database, LayoutTemplate, ExternalLink, 
+    Twitter, Facebook, Clock, Languages, ShieldCheck 
+} from "lucide-react"; //  Added extra icons
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnrichButton } from "@/components/features/pipeline/enrich-button";
@@ -72,7 +75,7 @@ export default async function CompanyDetailPage({
         {/* --- KHỐI THÔNG TIN MỚI (Business / Tech / Audit) --- */}
         <div className="grid gap-6 md:grid-cols-3 items-stretch">
             
-            {/* CARD 1: BUSINESS PROFILE (Size, Type, Revenue) */}
+            {/* CARD 1: BUSINESS PROFILE */}
             <Card className="border shadow-sm h-full flex flex-col">
                 <CardHeader className="bg-white border-b border-gray-100 pb-4">
                     <CardTitle className="text-lg font-bold text-black flex items-center gap-2">
@@ -95,7 +98,7 @@ export default async function CompanyDetailPage({
                 </CardContent>
             </Card>
 
-            {/* CARD 2: TECH STACK (WordPress, CRM) */}
+            {/* CARD 2: TECH STACK */}
             <Card className="border shadow-sm h-full flex flex-col">
                 <CardHeader className="bg-white border-b border-gray-100 pb-4">
                     <CardTitle className="text-lg font-bold text-black flex items-center gap-2">
@@ -122,7 +125,7 @@ export default async function CompanyDetailPage({
                 </CardContent>
             </Card>
 
-            {/* CARD 3: TECHNICAL AUDIT (SSL, Speed) */}
+            {/* CARD 3: TECHNICAL AUDIT */}
             <Card className="border shadow-sm h-full flex flex-col">
                 <CardHeader className="bg-white border-b border-gray-100 pb-4">
                     <CardTitle className="text-lg font-bold text-black flex items-center gap-2">
@@ -139,24 +142,33 @@ export default async function CompanyDetailPage({
                             {company.has_ssl ? "Secure" : "Missing SSL"}
                         </Badge>
                     </div>
-                    <div className="flex justify-between items-center pb-2">
+                    <div className="flex justify-between items-center border-b border-gray-100 pb-2">
                         <span className="text-gray-600 font-semibold">PageSpeed</span>
                         <span className={`text-xl font-extrabold ${!company.pagespeed_score || company.pagespeed_score < 50 ? 'text-red-600' : 'text-green-600'}`}>
                             {company.pagespeed_score ?? "N/A"}/100
                         </span>
                     </div>
+                    <div className="flex justify-between items-center pt-1">
+                         <span className="text-gray-600 font-semibold">Google Maps</span>
+                         <a 
+                            href={company.google_maps_url || "#"} 
+                            target="_blank" 
+                            className="text-sm text-blue-700 font-bold hover:underline flex items-center gap-1"
+                         >
+                            View on Maps <ExternalLink className="h-3 w-3" />
+                         </a>
+                    </div>
                 </CardContent>
             </Card>
         </div>
 
-        {/* SALES STRATEGY (Updated Logic based on Tech Stack) */}
+        {/* SALES STRATEGY */}
         <Card className="bg-slate-900 text-white border-none shadow-md">
             <CardHeader className="border-b border-slate-700 pb-4">
                 <CardTitle className="text-lg font-bold text-white">Sales Strategy</CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
                 <p className="text-base text-slate-300 leading-relaxed font-medium">
-                    {/* Logic hiển thị chiến thuật dựa trên Tech Stack mới */}
                     {company.crm_system === 'HubSpot' 
                         ? "🎯 Opportunity: They use HubSpot. Pitch our 'Quack' agent for better lead qualification inside their existing CRM."
                         : company.is_wordpress 
@@ -169,7 +181,7 @@ export default async function CompanyDetailPage({
             </CardContent>
         </Card>
 
-        {/* Decision Makers List */}
+        {/* DECISION MAKERS LIST (UPDATED UI) */}
         <div className="space-y-6 pt-6 border-t border-gray-200">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold flex items-center gap-3 text-black">
@@ -190,27 +202,64 @@ export default async function CompanyDetailPage({
                 <div className="grid gap-6 md:grid-cols-2 items-stretch">
                     {contacts.map((contact: any) => (
                         <Card key={contact.id} className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow h-full flex flex-col">
-                            <CardContent className="p-6 flex flex-col gap-4 h-full">
+                            <CardContent className="p-5 flex flex-col gap-4 h-full">
+                                {/* Header: Avatar & Name */}
                                 <div className="flex items-start gap-4">
-                                    <div className="h-14 w-14 rounded-full bg-black text-white flex items-center justify-center font-bold text-xl shrink-0">
+                                    <div className="h-12 w-12 rounded-full bg-black text-white flex items-center justify-center font-bold text-lg shrink-0">
                                         {contact.full_name?.charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-lg text-black truncate">{contact.full_name}</h3>
-                                        <p className="text-sm font-semibold text-gray-600 truncate">{contact.position}</p>
+                                        <p className="text-sm font-bold text-blue-700 truncate">{contact.position}</p>
                                     </div>
                                 </div>
+
+                                {/* NEW: Rich Attributes Badges */}
+                                <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                                    {/* Seniority */}
+                                    <div className={`px-2 py-1 rounded-md border flex items-center gap-1
+                                        ${contact.seniority === 'C-Level' ? 'bg-purple-50 text-purple-700 border-purple-200' : 
+                                          contact.seniority === 'VP' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 
+                                          'bg-gray-50 text-gray-600 border-gray-200'}`}
+                                    >
+                                        <ShieldCheck className="h-3 w-3" /> {contact.seniority || "Unknown Level"}
+                                    </div>
+
+                                    {/* Language */}
+                                    <div className="px-2 py-1 rounded-md border bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
+                                        <Languages className="h-3 w-3" /> {contact.language || "Unknown"}
+                                    </div>
+
+                                    {/* Tenure */}
+                                    <div className="px-2 py-1 rounded-md border bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                                        <Clock className="h-3 w-3" /> {contact.years_in_company || "Unknown"}
+                                    </div>
+                                </div>
+                                
                                 <div className="flex-1"></div> 
+
+                                {/* Action Area */}
                                 <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-2">
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-2">
+                                        {/* Social Icons */}
                                         {contact.linkedin_url && (
                                             <a href={contact.linkedin_url} target="_blank" className="p-2 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
-                                                <Linkedin className="h-5 w-5" />
+                                                <Linkedin className="h-4 w-4" />
+                                            </a>
+                                        )}
+                                        {contact.twitter_url && (
+                                            <a href={contact.twitter_url} target="_blank" className="p-2 rounded-full bg-sky-50 text-sky-500 hover:bg-sky-100 transition-colors">
+                                                <Twitter className="h-4 w-4" />
+                                            </a>
+                                        )}
+                                        {contact.facebook_url && (
+                                            <a href={contact.facebook_url} target="_blank" className="p-2 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+                                                <Facebook className="h-4 w-4" />
                                             </a>
                                         )}
                                         {contact.email && (
                                             <a href={`mailto:${contact.email}`} className="p-2 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
-                                                <Mail className="h-5 w-5" />
+                                                <Mail className="h-4 w-4" />
                                             </a>
                                         )}
                                     </div>
