@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     // 3. Dùng Gemini để trích xuất (Intelligence Extraction)
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `
       You are a Sales Intelligence Agent.
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       ${JSON.stringify(searchContext)}
 
       TASK:
-      Identify 1-5 key decision makers (CEO, Founder, CTO, Director).
+      Identify 1-5 decision makers (e.g.,CEO, Founder, CTO, Director).
       For each person, extract or infer the following details strictly from the text provided:
       
       1. full_name: Clean name (remove titles like PhD, MBA, "Profile").
@@ -57,8 +57,8 @@ export async function POST(request: Request) {
          - twitter: URL (if found in link)
          - facebook: URL (if found in link)
       4. language: Detect likely language based on name and snippet text (e.g., "Vietnamese", "English").
-      5. years_in_company: Look for phrases like "5 years at...", "since 2018". If not found, return "Unknown".
-      6. seniority: Classify into one of ["C-Level", "VP", "Director", "Manager", "Individual Contributor"].
+      5. years_in_company: Look for phrases like "... years at...", "since ....". If not found, return "Unknown".
+    
 
       IMPORTANT: If you find a person but some fields are missing, make a reasonable guess or set to null/Unknown. Do NOT return empty if you see a name.
 
