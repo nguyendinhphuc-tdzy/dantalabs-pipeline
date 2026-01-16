@@ -18,6 +18,7 @@ export interface Company {
   employee_count: string | null;
   revenue_range: string | null;
   is_wordpress: boolean;
+  search_keyword?: string
   crm_system: string | null;
   // ----------------------
 
