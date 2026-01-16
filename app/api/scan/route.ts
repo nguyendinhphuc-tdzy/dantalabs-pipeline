@@ -107,8 +107,8 @@ export async function POST(request: Request) {
         name: item.title,
         website_url: websiteUrl,
         google_maps_url: item.url,
-        industry: item.categoryName || keyword,
-        
+        industry: item.categoryName || "Unknown",
+        search_keyword: keyword,
         // New Fields Mapped
         address: item.address, 
         has_ssl: hasSSL,
