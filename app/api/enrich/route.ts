@@ -1,140 +1,130 @@
 import { supabase } from "@/lib/supabase/client";
 import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(request: Request) {
   try {
     const { companyId, companyName } = await request.json();
-    console.log(`🕵️‍♂️ Finding Decision Makers for: "${companyName}"...`);
+    console.log(`🕵️‍♂️ AI Enriching Decision Makers for: "${companyName}"...`);
 
     const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
     const cx = process.env.GOOGLE_SEARCH_CX;
+    const geminiKey = process.env.GOOGLE_AI_API_KEY;
 
-    if (!apiKey || !cx) {
-      return NextResponse.json({ success: false, error: "Missing Google API Key" }, { status: 500 });
+    if (!apiKey || !cx || !geminiKey) {
+      return NextResponse.json({ success: false, error: "Missing API Keys (Google Search or AI)" }, { status: 500 });
     }
 
-    // 1. IMPROVED QUERY: Remove quotes around company name for broader match
-    // Add keywords for Vietnam context since we are searching local companies
-    const query = `${companyName} (CEO OR Founder OR Director OR "Giám đốc" OR Manager) site:linkedin.com`;
-    
-    console.log("Querying Google:", query);
-    
+    // 1. Google Search Query (Tìm LinkedIn Profile)
+    // Query rộng hơn một chút để lấy context cho AI
+    const query = `site:linkedin.com/in/ "${companyName}" (CEO OR Founder OR Director OR "Giám đốc" OR Head OR Manager)`;
     const googleUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`;
 
     const res = await fetch(googleUrl);
     
     if (!res.ok) {
         const errorText = await res.text();
-        console.error("Google API Error:", errorText);
-        return NextResponse.json({ success: false, error: "Google API Connection Failed" });
+        console.error("Google Search API Error:", errorText);
+        return NextResponse.json({ success: false, error: "Google Search API Failed" });
     }
 
     const data = await res.json();
 
     if (!data.items || data.items.length === 0) {
-      console.warn("⚠️ Google returned 0 raw results.");
       return NextResponse.json({ success: false, message: "No results found on Google" });
     }
 
-    console.log(`✅ Google found ${data.items.length} raw results. Processing...`);
+    // 2. Chuẩn bị dữ liệu thô để gửi cho Gemini
+    // Chúng ta gửi 5 kết quả đầu tiên (Title + Snippet) để AI đọc hiểu
+    const searchContext = data.items.slice(0, 5).map((item: any) => ({
+        title: item.title,
+        snippet: item.snippet,
+        link: item.link
+    }));
 
-    // 2. SMARTER PARSING LOGIC
-    const contacts: any[] = [];
-    
-    for (const item of data.items) {
-        const link = item.link || "";
-        const title = item.title || "";
+    // 3. Dùng Gemini để trích xuất thông tin chi tiết (Intelligence Extraction)
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // FILTER: Accept any LinkedIn link EXCEPT Company Pages or Job Posts
-        // This allows vn.linkedin.com, www.linkedin.com/in, etc.
-        const isLinkedIn = link.includes("linkedin.com");
-        const isCompanyPage = link.includes("/company/") || link.includes("/jobs/") || link.includes("/school/");
+    const prompt = `
+      You are an expert Sales Data Researcher.
+      Analyze these Google Search results for LinkedIn profiles related to the company "${companyName}".
+      
+      SEARCH RESULTS:
+      ${JSON.stringify(searchContext)}
 
-        if (isLinkedIn && !isCompanyPage) {
-            
-            // CLEAN TITLE: Remove " | LinkedIn" suffix
-            let cleanTitle = title
-                .replace(" | LinkedIn", "")
-                .replace(" - LinkedIn", "")
-                .replace(" | Ho Chi Minh City", "") // Common junk
-                .replace(" | Vietnam", "");
+      TASK:
+      Extract up to 3 most relevant Decision Makers (Focus on: CEO, Founder, CTO, Directors, Heads).
+      For each person, infer the following details based on the title and snippet text:
 
-            // PARSE NAME & POSITION
-            // Format usually: "Name - Position - Company" OR "Name - Position"
-            const parts = cleanTitle.split(" - ");
-            
-            let fullName = parts[0];
-            let position = "Decision Maker"; // Default fallback
+      1. Full Name: Clean name, remove titles like 'MBA', 'PhD', '| LinkedIn'.
+      2. Exact Position: The job title at ${companyName}.
+      3. Seniority: Choose one of ["C-Level", "VP", "Director", "Manager", "Individual Contributor"].
+      4. Language: Infer likely primary language based on Name and Location context (e.g., "Vietnamese", "English", "Japanese").
+      5. Years in Company: Look for duration in the snippet (e.g., "5 years", "2018 - Present"). If not found, return "Unknown".
+      6. Socials: LinkedIn is provided. If the snippet mentions Twitter/Facebook, extract it, otherwise null.
 
-            if (parts.length >= 2) {
-                // Heuristic: If part[1] is NOT the company name, it's likely the position
-                // Check similarity strictly
-                if (!parts[1].toLowerCase().includes(companyName.toLowerCase())) {
-                    position = parts[1];
-                } else if (parts.length >= 3) {
-                    // "Name - Company - Position" case (rare but happens)
-                    position = parts[2];
-                }
-            } else {
-                // If splitting fails, try to guess from the snippet
-                const snippet = item.snippet || "";
-                if (snippet.includes("CEO")) position = "CEO";
-                else if (snippet.includes("Founder")) position = "Founder";
-                else if (snippet.includes("Director")) position = "Director";
-                else if (snippet.includes("Manager")) position = "Manager";
-            }
-
-            // AVOID DUPLICATES
-            if (!contacts.find(c => c.full_name === fullName)) {
-                contacts.push({
-                    company_id: companyId,
-                    full_name: fullName.trim(),
-                    position: position.trim(),
-                    linkedin_url: link,
-                    is_primary_decision_maker: true,
-                    email: null
-                });
-            }
+      OUTPUT JSON FORMAT ONLY (Array of objects):
+      [
+        {
+          "full_name": "Nguyen Van A",
+          "position": "CEO",
+          "seniority": "C-Level",
+          "language": "Vietnamese",
+          "years_in_company": "5 years",
+          "linkedin_url": "https://linkedin.com/in/...",
+          "facebook_url": null,
+          "twitter_url": null
         }
+      ]
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    
+    // Clean up markdown code blocks if AI adds them
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    let parsedContacts;
+    try {
+        parsedContacts = JSON.parse(cleanJson);
+    } catch (e) {
+        console.error("AI JSON Parse Error:", e);
+        return NextResponse.json({ success: false, error: "Failed to parse AI response" });
+    }
+
+    if (!Array.isArray(parsedContacts) || parsedContacts.length === 0) {
+        return NextResponse.json({ success: false, message: "AI found no valid contacts" });
+    }
+
+    // 4. Lưu vào Supabase
+    const contactsToSave = parsedContacts.map((c: any) => ({
+        company_id: companyId,
+        full_name: c.full_name,
+        position: c.position,
+        linkedin_url: c.linkedin_url,
+        // Các trường mới
+        seniority: c.seniority,
+        language: c.language,
+        years_in_company: c.years_in_company,
+        facebook_url: c.facebook_url,
+        twitter_url: c.twitter_url,
         
-        // Limit to 3 contacts
-        if (contacts.length >= 3) break;
-    }
+        // Xác định primary decision maker dựa trên cấp bậc
+        is_primary_decision_maker: ['C-Level', 'VP', 'Director', 'Founder'].includes(c.seniority),
+        email: null // Email thường không có trên Google Search công khai
+    }));
 
-    // FALLBACK: If filtering removed everyone, just take the first result as a raw guess
-    // This ensures we rarely return "Empty" if Google actually found something.
-    if (contacts.length === 0 && data.items.length > 0) {
-         console.log("⚠️ Strict filter returned 0. Using fallback to first result.");
-         const fallbackItem = data.items[0];
-         if (fallbackItem.link.includes("linkedin.com")) {
-             contacts.push({
-                company_id: companyId,
-                full_name: fallbackItem.title.split(" - ")[0] || "Unknown Profile",
-                position: "Potential Contact",
-                linkedin_url: fallbackItem.link,
-                is_primary_decision_maker: false,
-                email: null
-             });
-         }
-    }
-
-    if (contacts.length === 0) {
-         return NextResponse.json({ success: false, message: "Found results but none were valid profiles" });
-    }
-
-    // 3. Save to Supabase
-    const { error } = await supabase
-      .from('contacts')
-      .insert(contacts);
+    const { error } = await supabase.from('contacts').insert(contactsToSave);
 
     if (error) {
         console.error("Supabase Insert Error:", error);
         throw error;
     }
 
-    console.log(`💾 Saved ${contacts.length} contacts to Database.`);
+    console.log(`✅ Saved ${contactsToSave.length} enriched profiles for ${companyName}.`);
 
-    return NextResponse.json({ success: true, count: contacts.length });
+    return NextResponse.json({ success: true, count: contactsToSave.length, data: contactsToSave });
 
   } catch (error: any) {
     console.error("❌ Enrich Error:", error);
