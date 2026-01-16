@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       ${JSON.stringify(searchContext)}
 
       TASK:
-      Identify up to 3 key decision makers (CEO, Founder, CTO, Director).
+      Identify from 1 - 5 key decision makers (CEO, Founder, CTO, Director).
       For each person, extract or infer the following details strictly from the text provided:
       
       1. full_name: Clean name (remove titles like PhD, MBA).
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
         throw error;
     }
 
-    console.log(`✅ Saved ${contactsToSave.length} enriched profiles.`);
+    console.log(`Saved ${contactsToSave.length} enriched profiles.`);
     return NextResponse.json({ success: true, count: contactsToSave.length });
 
   } catch (error: any) {
