@@ -9,14 +9,14 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const apifyToken = process.env.APIFY_API_TOKEN;
 
 if (!supabaseUrl || !supabaseKey || !apifyToken) {
-    console.error("❌ Thiếu biến môi trường! Kiểm tra file .env.local");
+    console.error("❌ Missing environment variables! Check on file .env.local");
     process.exit(1);
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 const apify = new ApifyClient({ token: apifyToken });
 
-// Hàm tính điểm PageSpeed giả định (Vì check thật tốn thêm API khác, ta tạm random logic dựa trên website)
+// PageSpeed estimation mock function
 function estimatePageSpeed(url) {
     if (!url) return 0;
     // Web không có https thường cũ và chậm
